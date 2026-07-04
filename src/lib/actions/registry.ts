@@ -9,6 +9,7 @@ export const ACTION_TYPES = [
   "github.comment_issue",
   "github.comment_pr",
   "github.create_issue",
+  "slack.post_message",
 ] as const;
 
 export type ActionType = (typeof ACTION_TYPES)[number];
@@ -24,6 +25,11 @@ const createIssuePayload = z.object({
   repo: z.string().regex(/^[^/]+\/[^/]+$/, "repo must be owner/name"),
   title: z.string().min(1).max(256),
   body: z.string().max(65000),
+});
+
+const slackMessagePayload = z.object({
+  channel: z.string().min(1), // channel name (without #) or id
+  text: z.string().min(1).max(3000),
 });
 
 export const ACTION_REGISTRY: Record<
@@ -48,6 +54,11 @@ export const ACTION_REGISTRY: Record<
     label: "Create issue",
     risk: "medium",
     payloadSchema: createIssuePayload,
+  },
+  "slack.post_message": {
+    label: "Post to Slack",
+    risk: "medium",
+    payloadSchema: slackMessagePayload,
   },
 };
 

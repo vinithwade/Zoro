@@ -50,15 +50,20 @@ const SEVERITY: Record<string, "red" | "yellow" | "blue"> = {
   low: "blue",
 };
 
-export function SessionAnalysis() {
+export function SessionAnalysis({
+  department = "engineering",
+}: {
+  department?: string;
+}) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const analysisKey = [`${department}-analysis`];
 
   const { data, isLoading } = useQuery({
-    queryKey: ["engineering-analysis"],
+    queryKey: analysisKey,
     queryFn: async () => {
-      const res = await fetch("/api/sessions/engineering");
+      const res = await fetch(`/api/sessions/${department}`);
       return res.json() as Promise<Analysis>;
     },
     refetchInterval: 30_000,
@@ -68,13 +73,13 @@ export function SessionAnalysis() {
     setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/sessions/engineering/refresh", {
+      const res = await fetch(`/api/sessions/${department}/refresh`, {
         method: "POST",
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.reason ?? "Refresh failed");
-      await queryClient.invalidateQueries({ queryKey: ["engineering-analysis"] });
-      await queryClient.invalidateQueries({ queryKey: ["pending-approvals"] });
+      await queryClient.invalidateQueries({ queryKey: analysisKey });
+      await queryClient.invalidateQueries({ queryKey: ["actions"] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Refresh failed");
     } finally {

@@ -34,11 +34,17 @@ const TYPE_LABEL: Record<string, string> = {
   "commit.pushed": "Commits",
 };
 
-export function EventFeed({ pollMs = 10_000 }: { pollMs?: number }) {
+export function EventFeed({
+  pollMs = 10_000,
+  department = "engineering",
+}: {
+  pollMs?: number;
+  department?: string;
+}) {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["events"],
+    queryKey: ["events", department],
     queryFn: async () => {
-      const res = await fetch("/api/events?limit=100");
+      const res = await fetch(`/api/events?limit=100&department=${department}`);
       if (!res.ok) throw new Error("Failed to load events");
       return res.json() as Promise<{ items: FeedEvent[] }>;
     },

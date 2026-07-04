@@ -16,7 +16,7 @@ import { ExternalLink } from "lucide-react";
 
 export type GraphNode = {
   id: string;
-  type: "repo" | "person" | "pull_request" | "issue" | "conversation";
+  type: "repo" | "person" | "pull_request" | "issue" | "conversation" | "channel";
   label: string;
   sublabel?: string;
   url?: string | null;
@@ -33,6 +33,7 @@ const COLORS: Record<GraphNode["type"], string> = {
   pull_request: "#4ea7fc",
   issue: "#f2c94c",
   conversation: "#c084fc",
+  channel: "#22d3ee",
 };
 
 const TYPE_LABEL: Record<GraphNode["type"], string> = {
@@ -41,6 +42,7 @@ const TYPE_LABEL: Record<GraphNode["type"], string> = {
   pull_request: "Pull request",
   issue: "Issue",
   conversation: "Conversation",
+  channel: "Slack channel",
 };
 
 function radius(n: GraphNode): number {

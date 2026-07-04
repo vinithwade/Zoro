@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getGithubClient } from "@/lib/github/client";
+import { getSlackClient, postSlackMessage, type SlackConfig } from "@/lib/slack/client";
 import { ACTION_REGISTRY, isActionType, type ActionType } from "./registry";
 import type { Octokit } from "octokit";
 
@@ -48,14 +49,9 @@ export async function executeAction(
       action.payload,
     ) as Record<string, unknown>;
 
-    const client = await getGithubClient(workspaceId);
-    if (!client) throw new Error("GitHub is not connected.");
-
-    const externalResult = await runExecutor(
-      action.actionType,
-      client.octokit,
-      payload,
-    );
+    const externalResult = action.actionType.startsWith("slack.")
+      ? await runSlackExecutor(workspaceId, action.actionType, payload)
+      : await runGithubExecutor(workspaceId, action.actionType, payload);
 
     await db.proposedAction.update({
       where: { id: action.id },
@@ -138,11 +134,14 @@ export async function retryAction(
   return executeAction(workspaceId, actionId);
 }
 
-async function runExecutor(
+async function runGithubExecutor(
+  workspaceId: string,
   actionType: ActionType,
-  octokit: Octokit,
   payload: Record<string, unknown>,
 ): Promise<{ htmlUrl: string; ref?: number }> {
+  const client = await getGithubClient(workspaceId);
+  if (!client) throw new Error("GitHub is not connected.");
+  const octokit: Octokit = client.octokit;
   const repo = String(payload.repo);
   const [owner, name] = repo.split("/");
 
@@ -164,4 +163,23 @@ async function runExecutor(
     body: String(payload.body),
   });
   return { htmlUrl: data.html_url };
+}
+
+async function runSlackExecutor(
+  workspaceId: string,
+  _actionType: ActionType,
+  payload: Record<string, unknown>,
+): Promise<{ htmlUrl: string }> {
+  const client = await getSlackClient(workspaceId);
+  if (!client) throw new Error("Slack is not connected.");
+  const config = client.config as SlackConfig;
+  const requested = String(payload.channel).replace(/^#/, "");
+  // Resolve a channel name to its id; allow passing an id directly.
+  const match = config.channels.find(
+    (c) => c.name === requested || c.id === requested,
+  );
+  const channelId = match?.id ?? requested;
+  const posted = await postSlackMessage(client.token, channelId, String(payload.text));
+  const base = config.url.endsWith("/") ? config.url : config.url + "/";
+  return { htmlUrl: `${base}archives/${posted.channel}/p${posted.ts.replace(".", "")}` };
 }
