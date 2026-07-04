@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Inbox,
   MessagesSquare,
+  DollarSign,
   Sparkles,
   HelpCircle,
   ArrowRight,
@@ -67,7 +68,10 @@ export default async function DashboardPage() {
         }
       />
       <div className="space-y-6 px-8 py-6">
-        <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface md:grid-cols-3 md:divide-y-0 lg:grid-cols-5">
+        <div className={`grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface md:grid-cols-3 md:divide-y-0 ${data.mrr ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
+          {data.mrr ? (
+            <StatTile label="MRR" value={data.mrr} icon={DollarSign} tone="accent" />
+          ) : null}
           <StatTile label="Open PRs" value={data.stats.openPRs} icon={GitPullRequest} />
           <StatTile label="Failing CI" value={data.stats.failingCI} icon={XCircle} tone="red" />
           <StatTile label="Blockers" value={data.stats.blockers} icon={AlertTriangle} tone="yellow" />

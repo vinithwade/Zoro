@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { detectBlockerCandidates, type EventLite } from "@/lib/ai/blocker-rules";
+import { getStoredMetrics, formatMoney } from "@/lib/stripe/metrics";
 
 const WINDOW_DAYS = 30;
 
@@ -17,6 +18,8 @@ export type DashboardData = {
   connected: boolean;
   githubConnected: boolean;
   slackConnected: boolean;
+  stripeConnected: boolean;
+  mrr: string | null;
   stats: {
     openPRs: number;
     failingCI: number;
@@ -54,13 +57,17 @@ async function latestSummary(
 }
 
 export async function getDashboardData(workspaceId: string): Promise<DashboardData> {
-  const [github, slack] = await Promise.all([
+  const [github, slack, stripe, metrics] = await Promise.all([
     db.integration.findUnique({
       where: { workspaceId_provider: { workspaceId, provider: "github" } },
     }),
     db.integration.findUnique({
       where: { workspaceId_provider: { workspaceId, provider: "slack" } },
     }),
+    db.integration.findUnique({
+      where: { workspaceId_provider: { workspaceId, provider: "stripe" } },
+    }),
+    getStoredMetrics(workspaceId),
   ]);
 
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -111,9 +118,11 @@ export async function getDashboardData(workspaceId: string): Promise<DashboardDa
     (comm?.content.blockers.length ?? 0);
 
   return {
-    connected: !!github || !!slack,
+    connected: !!github || !!slack || !!stripe,
     githubConnected: !!github,
     slackConnected: !!slack,
+    stripeConnected: !!stripe,
+    mrr: metrics ? formatMoney(metrics.mrr, metrics.currency) : null,
     stats: { openPRs, failingCI, blockers: blockerCount, messages, pendingApprovals },
     health: worseHealth(eng?.content.health ?? null, comm?.content.health ?? null),
     engineering: eng ? { text: eng.content.summary, createdAt: eng.createdAt } : null,

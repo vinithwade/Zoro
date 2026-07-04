@@ -2,6 +2,7 @@ import "server-only";
 import { db, getDefaultWorkspace } from "@/lib/db";
 import { syncGithub } from "@/lib/github/sync";
 import { syncSlack } from "@/lib/slack/sync";
+import { syncStripe } from "@/lib/stripe/sync";
 import { maybeRefreshEngineeringSession } from "@/lib/ai/engineering-session";
 import { maybeRefreshCommunicationSession } from "@/lib/ai/communication-session";
 import { sendDigest, type DigestKind } from "@/lib/ai/digest";
@@ -29,7 +30,8 @@ export function startScheduler() {
       const ws = await getDefaultWorkspace();
       const gh = await syncGithub(ws.id);
       const slack = await syncSlack(ws.id).catch(() => ({ ingested: 0 }));
-      const ingested = (gh.ingested ?? 0) + (slack.ingested ?? 0);
+      const stripe = await syncStripe(ws.id).catch(() => ({ ingested: 0 }));
+      const ingested = (gh.ingested ?? 0) + (slack.ingested ?? 0) + (stripe.ingested ?? 0);
       if (ingested > 0) {
         console.log(`[scheduler] ingested ${ingested} event(s)`);
         // Auto-refresh AI analysis when new events land (throttled once / 15 min).

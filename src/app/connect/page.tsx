@@ -6,6 +6,7 @@ import {
   GitBranch,
   Sparkles,
   Hash,
+  CreditCard,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -29,6 +30,7 @@ export default function ConnectPage() {
       <div className="mx-auto max-w-2xl space-y-6 p-8">
         <GithubCard />
         <SlackCard />
+        <StripeCard />
         <OpenAICard />
       </div>
     </div>
@@ -371,6 +373,89 @@ function SlackCard() {
             Watching {connected.channels?.length ?? 0} channel
             {connected.channels?.length === 1 ? "" : "s"}. Paste a token above to change.
           </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StripeCard() {
+  const router = useRouter();
+  const [key, setKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connected, setConnected] = useState<{ accountName?: string; livemode?: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/integrations/stripe")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.connected) setConnected(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function connect() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/integrations/stripe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setConnected({ accountName: data.account, livemode: data.livemode });
+      setKey("");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not connect");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" />
+          <CardTitle className="text-base">Stripe</CardTitle>
+        </div>
+        {connected ? (
+          <Badge variant="green">
+            <CheckCircle2 className="h-3 w-3" /> {connected.accountName || "Connected"}
+            {connected.livemode === false ? " (test)" : ""}
+          </Badge>
+        ) : (
+          <Badge>Not connected</Badge>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted">
+          Powers revenue signals (MRR, new customers, failed payments) and the
+          weekly investor update. Create a{" "}
+          <span className="text-foreground">restricted, read-only API key</span> in
+          Stripe → Developers → API keys (Read access to Charges, Customers,
+          Subscriptions, Events).
+        </p>
+        <div className="flex gap-2">
+          <Input
+            type="password"
+            placeholder="rk_… or sk_…"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+          />
+          <Button onClick={connect} disabled={key.length < 10 || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
+          </Button>
+        </div>
+        {error ? (
+          <div className="flex items-start gap-2 rounded-md border border-red/30 bg-red/10 px-3 py-2 text-sm text-red">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
         ) : null}
       </CardContent>
     </Card>

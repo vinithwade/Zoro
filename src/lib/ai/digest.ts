@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getOpenAIClient } from "./openai";
 import { getSlackClient, postSlackMessage, fetchMentionMap, mentionFor } from "@/lib/slack/client";
+import { getRevenueMetrics, formatMoney } from "@/lib/stripe/metrics";
 
 export type DigestKind = "standup" | "investor";
 
@@ -67,14 +68,32 @@ export async function generateDigest(
   const blockerOwners = await buildBlockerOwners(workspaceId, mentions);
 
   let system: string;
+  let revenueBlock = "";
   if (kind === "investor") {
     const counts: Record<string, number> = {};
     for (const e of events) counts[e.type] = (counts[e.type] ?? 0) + 1;
     const metrics = Object.entries(counts).map(([t, n]) => `${t}: ${n}`).join(", ");
+
+    // Pull real revenue from Stripe if connected.
+    const rev = await getRevenueMetrics(workspaceId).catch(() => null);
+    if (rev) {
+      revenueBlock = [
+        "\nREVENUE (from Stripe — use exact figures, do not invent):",
+        `• MRR: ${formatMoney(rev.mrr, rev.currency)}`,
+        `• Active subscriptions: ${rev.activeSubscriptions}`,
+        `• New MRR this week: ${formatMoney(rev.newMrr7d, rev.currency)}`,
+        `• New customers (7d): ${rev.newCustomers7d}`,
+        `• Failed payments (7d): ${rev.failedPayments7d}`,
+      ].join("\n");
+    }
+
     system = [
       "You are Zoro, writing a WEEKLY INVESTOR UPDATE for a startup founder to post in a private Slack channel.",
-      "Use Slack mrkdwn: *bold* headers, '•' bullets. Sections, omitting any that are empty: *📦 Shipped this week*, *📊 Progress*, *🚧 Challenges*, *🎯 Next week & asks*.",
-      "Tone: confident, concise, honest — written for investors. Use ONLY the provided activity; do not invent metrics or facts. Under ~1600 characters. Start with '*Weekly update* — week of <date>'. No sign-off.",
+      "Use Slack mrkdwn: *bold* headers, '•' bullets. Sections, omitting any that are empty: *📦 Shipped this week*, *💰 Revenue*, *📊 Progress*, *🚧 Challenges*, *🎯 Next week & asks*.",
+      revenueBlock
+        ? "Include the *💰 Revenue* section using the exact Stripe figures provided — lead with MRR."
+        : "Omit the *💰 Revenue* section (no revenue data connected).",
+      "Tone: confident, concise, honest — written for investors. Use ONLY the provided activity/metrics; do not invent numbers. Under ~1600 characters. Start with '*Weekly update* — week of <date>'. No sign-off.",
       `Rough activity counts to reference where useful: ${metrics}.`,
     ].join("\n");
   } else {
@@ -88,6 +107,7 @@ export async function generateDigest(
 
   const user = [
     `ACTIVITY (last ${kind === "investor" ? "7 days" : "24h"}):\n${lines}`,
+    revenueBlock,
     blockerOwners.length ? `\nBLOCKERS WITH OWNERS (use these mention tokens verbatim):\n${blockerOwners.map((b) => `• ${b}`).join("\n")}` : "",
   ].join("\n");
 
