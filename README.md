@@ -14,6 +14,14 @@ This is **Slice 1**: the full loop, proven end-to-end with GitHub only.
    brew services start postgresql@14
    createdb zoro          # if it doesn't exist yet
    ```
+   Zoro uses **pgvector** for semantic memory (Ask Zoro recall + the Memory graph). Install it once:
+   ```bash
+   brew install pgvector   # if the bottle isn't built for your Postgres, build from source:
+   #   git clone --branch v0.8.0 https://github.com/pgvector/pgvector && cd pgvector
+   #   make PG_CONFIG=/opt/homebrew/opt/postgresql@14/bin/pg_config
+   #   make install PG_CONFIG=/opt/homebrew/opt/postgresql@14/bin/pg_config
+   ```
+   The `prisma migrate` step below runs `CREATE EXTENSION vector` for you.
 2. **A GitHub fine-grained Personal Access Token** — the simplest way to connect (no app registration, no tunnels):
    - GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**
    - Name it "Zoro", 90-day expiry, **Resource owner** = you/your org

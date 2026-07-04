@@ -11,6 +11,8 @@ import {
   Plug,
   RefreshCw,
   Sparkles,
+  MessageCircleQuestion,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,6 +62,8 @@ export function CommandBar() {
       router.push(href);
     };
     return [
+      { id: "ask", label: "Ask Zoro a question", icon: MessageCircleQuestion, run: go("/ask") },
+      { id: "nav-memory", label: "Go to Memory graph", icon: Network, run: go("/memory") },
       { id: "nav-dashboard", label: "Go to CEO Dashboard", icon: LayoutDashboard, run: go("/") },
       { id: "nav-eng", label: "Go to Engineering", icon: Boxes, run: go("/sessions/engineering") },
       { id: "nav-approvals", label: "Go to Approvals", icon: Inbox, run: go("/approvals") },

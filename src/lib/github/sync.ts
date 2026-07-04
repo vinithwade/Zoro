@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getGithubClient, type GithubConfig } from "./client";
+import { embedMissingEvents } from "@/lib/ai/embeddings";
 import {
   normalizePull,
   normalizeIssue,
@@ -94,6 +95,11 @@ async function runSync(
   if (rows.length > 0) {
     const result = await db.event.createMany({ data: rows, skipDuplicates: true });
     ingested = result.count;
+  }
+
+  // Generate embeddings for newly ingested events (best-effort).
+  if (ingested > 0) {
+    await embedMissingEvents(workspaceId).catch(() => {});
   }
 
   await db.integration.update({
