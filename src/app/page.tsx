@@ -4,6 +4,7 @@ import {
   XCircle,
   AlertTriangle,
   Inbox,
+  MessagesSquare,
   Sparkles,
   HelpCircle,
   ArrowRight,
@@ -42,8 +43,8 @@ export default async function DashboardPage() {
         />
         <div className="p-8">
           <EmptyState
-            title="Connect GitHub to get started"
-            description="Zoro reads your repositories, builds a live activity feed, and surfaces blockers and decisions here."
+            title="Connect your tools to get started"
+            description="Zoro reads your GitHub and Slack, builds a live activity feed, and surfaces blockers and decisions here."
           >
             <Link href="/connect">
               <Button>Connect Tools</Button>
@@ -61,17 +62,16 @@ export default async function DashboardPage() {
         subtitle="What's happening, what's blocked, what needs your decision."
         actions={
           data.health ? (
-            <Badge variant={HEALTH[data.health].variant}>
-              {HEALTH[data.health].label}
-            </Badge>
+            <Badge variant={HEALTH[data.health].variant}>{HEALTH[data.health].label}</Badge>
           ) : undefined
         }
       />
       <div className="space-y-6 px-8 py-6">
-        <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface lg:grid-cols-4 lg:divide-y-0">
+        <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface md:grid-cols-3 md:divide-y-0 lg:grid-cols-5">
           <StatTile label="Open PRs" value={data.stats.openPRs} icon={GitPullRequest} />
           <StatTile label="Failing CI" value={data.stats.failingCI} icon={XCircle} tone="red" />
           <StatTile label="Blockers" value={data.stats.blockers} icon={AlertTriangle} tone="yellow" />
+          <StatTile label="Messages" value={data.stats.messages} icon={MessagesSquare} />
           <Link href="/approvals" className="block">
             <StatTile label="Pending approvals" value={data.stats.pendingApprovals} icon={Inbox} tone="accent" interactive />
           </Link>
@@ -83,8 +83,7 @@ export default async function DashboardPage() {
               <CardContent className="flex items-center justify-between py-4">
                 <span className="text-sm">
                   <span className="font-semibold text-accent">
-                    {data.stats.pendingApprovals} action
-                    {data.stats.pendingApprovals === 1 ? "" : "s"}
+                    {data.stats.pendingApprovals} action{data.stats.pendingApprovals === 1 ? "" : "s"}
                   </span>{" "}
                   awaiting your approval
                 </span>
@@ -95,66 +94,50 @@ export default async function DashboardPage() {
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-accent" />
-                <CardTitle>Engineering summary</CardTitle>
-              </div>
-              <Link href="/sessions/engineering" className="text-xs text-faint hover:text-foreground">
-                Open session →
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {data.summary ? (
-                <>
-                  <p className="text-sm leading-relaxed">{data.summary.text}</p>
-                  <p className="mt-3 text-xs text-faint">
-                    generated {timeAgo(data.summary.createdAt)}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted">
-                  No AI analysis yet.{" "}
-                  <Link href="/sessions/engineering" className="text-accent hover:underline">
-                    Open the Engineering session
-                  </Link>{" "}
-                  and run an analysis.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red" />
-                <CardTitle>Top blockers</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {data.summary && data.summary.blockers.length > 0 ? (
-                <ul className="space-y-2">
-                  {data.summary.blockers.map((b, i) => (
-                    <li key={i} className="flex items-center gap-2.5">
-                      <Badge
-                        variant={SEVERITY[b.severity] ?? "default"}
-                        className="w-16 shrink-0 justify-center"
-                      >
-                        {b.severity}
-                      </Badge>
-                      <span className="text-[13px]">{b.title}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted">No blockers detected.</p>
-              )}
-            </CardContent>
-          </Card>
+          <SummaryCard
+            title="Engineering"
+            href="/sessions/engineering"
+            summary={data.engineering}
+            connected={data.githubConnected}
+            connectLabel="Connect GitHub"
+          />
+          <SummaryCard
+            title="Communication"
+            href="/sessions/communication"
+            summary={data.communication}
+            connected={data.slackConnected}
+            connectLabel="Connect Slack"
+          />
         </div>
 
-        {data.summary && data.summary.decisionsNeeded.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red" />
+              <CardTitle>Top blockers</CardTitle>
+              <span className="text-xs text-faint">{data.blockers.length}</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {data.blockers.length > 0 ? (
+              <ul className="space-y-2">
+                {data.blockers.map((b, i) => (
+                  <li key={i} className="flex items-center gap-2.5">
+                    <Badge variant={SEVERITY[b.severity] ?? "default"} className="w-16 shrink-0 justify-center">
+                      {b.severity}
+                    </Badge>
+                    <span className="flex-1 text-[13px]">{b.title}</span>
+                    <Badge variant={b.source === "Slack" ? "blue" : "default"}>{b.source}</Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">No blockers detected across code or comms.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {data.decisions.length > 0 ? (
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -164,9 +147,12 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {data.summary.decisionsNeeded.map((d, i) => (
+                {data.decisions.map((d, i) => (
                   <li key={i}>
-                    <p className="text-sm font-medium">{d.question}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{d.question}</p>
+                      <Badge variant={d.source === "Slack" ? "blue" : "default"}>{d.source}</Badge>
+                    </div>
                     <p className="text-sm text-muted">{d.context}</p>
                   </li>
                 ))}
@@ -176,5 +162,50 @@ export default async function DashboardPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function SummaryCard({
+  title,
+  href,
+  summary,
+  connected,
+  connectLabel,
+}: {
+  title: string;
+  href: string;
+  summary: { text: string; createdAt: Date } | null;
+  connected: boolean;
+  connectLabel: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-accent" />
+          <CardTitle>{title} summary</CardTitle>
+        </div>
+        <Link href={connected ? href : "/connect"} className="text-xs text-faint hover:text-foreground">
+          {connected ? "Open session →" : "Connect →"}
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {summary ? (
+          <>
+            <p className="text-sm leading-relaxed">{summary.text}</p>
+            <p className="mt-3 text-xs text-faint">generated {timeAgo(summary.createdAt)}</p>
+          </>
+        ) : connected ? (
+          <p className="text-sm text-muted">
+            No analysis yet.{" "}
+            <Link href={href} className="text-accent hover:underline">Open the session</Link> and run one.
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            <Link href="/connect" className="text-accent hover:underline">{connectLabel}</Link> to see a summary here.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

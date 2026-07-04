@@ -14,7 +14,7 @@ import {
 
 export type GraphNode = {
   id: string;
-  type: "repo" | "person" | "pull_request" | "issue" | "conversation";
+  type: "repo" | "person" | "pull_request" | "issue" | "conversation" | "channel";
   label: string;
   sublabel?: string;
   url?: string | null;
@@ -24,7 +24,7 @@ export type GraphNode = {
 export type GraphLink = {
   source: string;
   target: string;
-  kind: "in" | "authored" | "committed" | "references" | "similar";
+  kind: "in" | "authored" | "committed" | "references" | "similar" | "posted";
 };
 
 export type MemoryGraph = {
@@ -99,6 +99,15 @@ export async function buildMemoryGraph(workspaceId: string): Promise<MemoryGraph
     // Person node
     if (e.actor) {
       addNode({ id: `person:${e.actor}`, type: "person", label: `@${e.actor}`, weight: 1 });
+    }
+
+    // Slack message → channel node + "posted" edge.
+    if (e.entityType === "message" && e.entityRef) {
+      const chId = `channel:${e.entityRef}`;
+      addNode({ id: chId, type: "channel", label: e.entityRef, weight: 2 });
+      eventToEntity.set(e.id, chId);
+      if (e.actor) addLink({ source: `person:${e.actor}`, target: chId, kind: "posted" });
+      continue;
     }
 
     // Entity node (PR / issue), capped to keep the graph legible

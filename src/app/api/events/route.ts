@@ -7,9 +7,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
   const cursor = url.searchParams.get("cursor");
+  const department = url.searchParams.get("department") ?? "engineering";
 
   const events = await db.event.findMany({
-    where: { workspaceId: ws.id, department: "engineering" },
+    where: { workspaceId: ws.id, department },
     orderBy: { occurredAt: "desc" },
     take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

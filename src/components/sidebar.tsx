@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Sparkles,
   Network,
+  MessagesSquare,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,7 +43,13 @@ export function Sidebar({ pendingApprovals }: { pendingApprovals?: number }) {
       href: "/sessions/engineering",
       label: "Engineering",
       icon: Boxes,
-      match: (p) => p.startsWith("/sessions"),
+      match: (p) => p.startsWith("/sessions/engineering"),
+    },
+    {
+      href: "/sessions/communication",
+      label: "Communication",
+      icon: MessagesSquare,
+      match: (p) => p.startsWith("/sessions/communication"),
     },
   ];
   const governance: NavItem[] = [
