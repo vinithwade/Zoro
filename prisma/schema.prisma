@@ -1,0 +1,146 @@
+// Zoro — data spine. Every table carries workspaceId so multi-tenant is a
+// later config change, not a rewrite. Slice 1 auto-creates one "default" workspace.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  integrations Integration[]
+  events       Event[]
+  summaries    SessionSummary[]
+  agentRuns    AgentRun[]
+  actions      ProposedAction[]
+  auditLogs    AuditLog[]
+}
+
+// A connected external tool. Slice 1: provider = "github".
+model Integration {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  provider       String // "github" (later: "linear", "slack", "stripe"...)
+  status         String    @default("connected") // connected | error | disconnected
+  encryptedToken String // AES-256-GCM, format "iv:tag:ciphertext" (base64)
+  config         Json // { owner, login, repos: string[] }
+  lastSyncedAt   DateTime?
+  syncCursor     Json? // per-repo { since, etags } — how far we've polled
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+}
+
+// The normalized company event. All sources map into this one shape.
+model Event {
+  id          String   @id @default(cuid())
+  workspaceId String
+  source      String // "github"
+  sourceId    String // dedupe key encoding the state transition, e.g. "github:pr:owner/repo#42:merged"
+  type        String // "pr.opened" | "pr.merged" | "ci.failed" | "issue.opened" | ...
+  department  String // "engineering" (kept as string so new departments need no migration)
+  title       String
+  summary     String? // deterministic one-liner (NEVER AI-generated)
+  actor       String? // github login
+  entityType  String? // "pull_request" | "issue" | "commit" | "check_run" | "repo"
+  entityRef   String? // "owner/repo#42" or sha
+  entityUrl   String? // deep link to GitHub
+  importance  Int      @default(2) // 1 low, 2 normal, 3 high, 4 critical
+  occurredAt  DateTime
+  ingestedAt  DateTime @default(now())
+  rawPayload  Json
+  // FUTURE (slice 2+): embedding vector(1536) column via pgvector for semantic recall
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, sourceId])
+  @@index([workspaceId, department, occurredAt(sort: Desc)])
+}
+
+// A persisted AI analysis of a department (the "session summary").
+model SessionSummary {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  department   String // "engineering" | "ceo"
+  content      Json // validated AI output (summary, health, blockers, decisions, recommendations)
+  eventIdsUsed String[] // grounding provenance
+  agentRunId   String?  @unique
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, department, createdAt(sort: Desc)])
+}
+
+// One AI invocation — for debugging, cost tracking, and replay.
+model AgentRun {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  kind             String // "engineering_session" | "ceo_dashboard"
+  model            String
+  status           String // running | succeeded | failed
+  inputSummary     Json // { eventCount, eventIds, blockerCandidateCount }
+  rawOutput        Json?
+  error            String?
+  promptTokens     Int?
+  completionTokens Int?
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, startedAt(sort: Desc)])
+}
+
+// An action the AI wants to take — gated behind human approval.
+model ProposedAction {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  agentRunId     String?
+  actionType     String // "github.create_issue" | "github.comment_issue" | "github.comment_pr"
+  title          String
+  reasoning      String // AI's justification, shown to the founder
+  payload        Json // validated against the action registry's Zod schema
+  riskLevel      String // "low" | "medium" (nothing higher exists in slice 1)
+  status         String    @default("pending") // pending | executing | executed | failed | rejected | expired
+  sourceEventIds String[] // provenance
+  idempotencyKey String    @unique // sha256(workspaceId|actionType|canonicalJson(payload))
+  externalResult Json? // { htmlUrl, number } after execution
+  error          String?
+  decidedAt      DateTime?
+  executedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+}
+
+// Append-only trail of everything that happened (AI, human, system).
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  actorType   String // "ai" | "human" | "system"
+  actor       String // "engineering-agent" | "founder" | "github-sync"
+  action      String // "action.proposed" | "action.approved" | "action.executed" | "sync.completed" | ...
+  targetType  String? // "proposed_action" | "integration" | "session_summary"
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+}

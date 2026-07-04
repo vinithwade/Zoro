@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* Zoro — Linear-inspired dark theme. Near-black surfaces, near-invisible
+   borders, neutral gray hierarchy, indigo accent used sparingly (primary
+   actions, focus, links — never nav-active or hover, which stay neutral). */
+
+:root {
+  --background: #0c0c0d; /* main content canvas */
+  --surface: #101011; /* sidebar, panels — barely lighter than canvas */
+  --surface-2: #17181a; /* elevated: dropdowns, palette, solid hover fills */
+  --border: rgba(255, 255, 255, 0.07); /* the only border normally visible */
+  --border-strong: rgba(255, 255, 255, 0.12); /* focus/hover borders, kbd chips */
+  --foreground: #f7f8f8;
+  --muted: #8a8f98;
+  --faint: #5c6066;
+
+  --accent: #5e6ad2; /* Linear indigo */
+  --accent-fg: #ffffff;
+
+  --green: #4cb782;
+  --yellow: #f2c94c;
+  --red: #eb5757;
+  --blue: #4ea7fc;
+
+  --radius: 0.5rem; /* 8px — panels/cards/modals; buttons/pills use rounded-md (6px) */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-green: var(--green);
+  --color-yellow: var(--yellow);
+  --color-red: var(--red);
+  --color-blue: var(--blue);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-lg: var(--radius);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(94, 106, 210, 0.4);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

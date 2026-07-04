@@ -1,0 +1,49 @@
+{
+  "name": "zoro",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --conditions=react-server --env-file=.env --test \"src/**/*.test.ts\"",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "demo:seed": "tsx --conditions=react-server --env-file=.env scripts/seed-demo.mts",
+    "demo:clear": "tsx --conditions=react-server --env-file=.env scripts/seed-demo.mts clear"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@tanstack/react-query": "^5.101.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "octokit": "^5.0.5",
+    "openai": "^6.45.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "playwright": "^1.61.1",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.0",
+    "typescript": "^5"
+  }
+}
