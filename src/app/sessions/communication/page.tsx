@@ -3,6 +3,7 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { EventFeed } from "@/components/event-feed";
 import { SessionAnalysis } from "@/components/session-analysis";
+import { DigestSettings } from "@/components/digest-settings";
 import { db, getDefaultWorkspace } from "@/lib/db";
 
 async function isSlackConnected(): Promise<boolean> {
@@ -43,6 +44,8 @@ export default async function CommunicationSessionPage() {
                 <EventFeed department="communication" />
               </div>
             </div>
+            <DigestSettings kind="standup" />
+            <DigestSettings kind="investor" />
           </div>
         )}
       </div>

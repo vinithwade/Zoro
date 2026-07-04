@@ -114,6 +114,33 @@ export async function fetchUserMap(token: string): Promise<Map<string, string>> 
   return map;
 }
 
+// Reverse lookup: lowercased name/handle → Slack user id, for @-mentions.
+export async function fetchMentionMap(token: string): Promise<Map<string, string>> {
+  const mentions = new Map<string, string>();
+  let cursor: string | undefined;
+  do {
+    const res = await slackApi<{
+      members: { id: string; name: string; deleted?: boolean; is_bot?: boolean; profile?: { display_name?: string; real_name?: string } }[];
+      response_metadata?: { next_cursor?: string };
+    }>(token, "users.list", { limit: 200, cursor });
+    if (!res.ok) break;
+    for (const m of res.members ?? []) {
+      if (m.deleted) continue;
+      for (const name of [m.name, m.profile?.display_name, m.profile?.real_name]) {
+        if (name) mentions.set(name.toLowerCase(), m.id);
+      }
+    }
+    cursor = res.response_metadata?.next_cursor || undefined;
+  } while (cursor);
+  return mentions;
+}
+
+// Turn an owner name into a Slack mention token if we can match it, else "@name".
+export function mentionFor(name: string, mentions: Map<string, string>): string {
+  const id = mentions.get(name.toLowerCase());
+  return id ? `<@${id}>` : `@${name}`;
+}
+
 export type SlackMessage = {
   type: string;
   subtype?: string;

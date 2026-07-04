@@ -25,7 +25,7 @@ model Workspace {
   actions       ProposedAction[]
   auditLogs     AuditLog[]
   conversations Conversation[]
-  digest        ScheduledDigest?
+  digests       ScheduledDigest[]
 }
 
 // A connected external tool. Slice 1: provider = "github".
@@ -161,19 +161,24 @@ model ChatMessage {
   @@index([conversationId, createdAt])
 }
 
-// Configuration for the automated daily Slack standup digest.
+// Automated Slack digests — one row per kind (standup, investor).
 model ScheduledDigest {
   id          String   @id @default(cuid())
-  workspaceId String   @unique
+  workspaceId String
+  kind        String   @default("standup") // "standup" | "investor"
+  cadence     String   @default("daily") // "daily" | "weekly"
   enabled     Boolean  @default(false)
   channel     String   @default("") // Slack channel name to post to
   hour        Int      @default(9) // local hour, 0-23
   minute      Int      @default(0)
-  lastSentOn  String? // "YYYY-MM-DD" guard so it sends at most once per day
+  dayOfWeek   Int      @default(1) // weekly cadence: 0=Sun … 6=Sat (Mon default)
+  lastSentOn  String? // "YYYY-MM-DD" guard so it sends at most once per period
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, kind])
 }
 
 // Append-only trail of everything that happened (AI, human, system).
