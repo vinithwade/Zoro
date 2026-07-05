@@ -40,8 +40,9 @@ export default async function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full">
+      <body className="min-h-full" suppressHydrationWarning>
         <Providers>
           <div className="flex h-screen">
             <Sidebar pendingApprovals={pendingApprovals} />
