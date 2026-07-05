@@ -39,6 +39,24 @@ export function NotificationBell() {
   const unread = data?.unread ?? 0;
   const items = data?.items ?? [];
 
+  const { data: prefs, refetch: refetchPrefs } = useQuery({
+    queryKey: ["notif-prefs"],
+    queryFn: async () => {
+      const res = await fetch("/api/notification-prefs");
+      return res.json() as Promise<{ slackConnected: boolean; channels: string[]; slackEnabled: boolean; channel: string }>;
+    },
+    enabled: open,
+  });
+
+  async function savePrefs(next: { slackEnabled: boolean; channel: string }) {
+    await fetch("/api/notification-prefs", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+    refetchPrefs();
+  }
+
   async function markRead(id?: string) {
     await fetch("/api/notifications/read", {
       method: "POST",
@@ -111,6 +129,30 @@ export function NotificationBell() {
                 })
               )}
             </ul>
+            {prefs?.slackConnected ? (
+              <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-xs text-muted">
+                <label className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={prefs.slackEnabled}
+                    onChange={(e) => savePrefs({ slackEnabled: e.target.checked, channel: prefs.channel })}
+                    className="accent-accent"
+                  />
+                  Also push to Slack
+                </label>
+                {prefs.slackEnabled ? (
+                  <select
+                    value={prefs.channel}
+                    onChange={(e) => savePrefs({ slackEnabled: true, channel: e.target.value })}
+                    className="ml-auto h-6 rounded border border-border bg-white/[0.03] px-1 text-xs outline-none focus:border-accent/60"
+                  >
+                    {prefs.channels.map((c) => (
+                      <option key={c} value={c}>#{c}</option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </>
       ) : null}

@@ -28,6 +28,7 @@ model Workspace {
   digests       ScheduledDigest[]
   budget        SpendBudget?
   notifications Notification[]
+  notifPref     NotificationPref?
 }
 
 // A connected external tool. Slice 1: provider = "github".
@@ -193,6 +194,18 @@ model SpendBudget {
   lastAlertedOn String? // "YYYY-MM-DD" so we alert at most once per day
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Where/whether to also push notifications to Slack.
+model NotificationPref {
+  id           String   @id @default(cuid())
+  workspaceId  String   @unique
+  slackEnabled Boolean  @default(false)
+  channel      String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
