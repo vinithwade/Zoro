@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getOpenAIClient, generateStructured } from "./openai";
 import { proposeAction } from "@/lib/actions/propose";
+import { notify, hashKey } from "@/lib/notifications";
 import { ACTION_REGISTRY } from "@/lib/actions/registry";
 import type { SlackConfig } from "@/lib/slack/client";
 
@@ -214,6 +215,16 @@ export async function runCommunicationSession(workspaceId: string): Promise<Refr
         riskLevel: "medium", sourceEventIds: a.sourceEventIds, actor: "communication-agent",
       });
       if (created) proposed++;
+    }
+
+    for (const d of grounded.decisionsNeeded) {
+      await notify(workspaceId, {
+        type: "decision",
+        title: "Decision needed (Communication)",
+        body: d.question,
+        href: "/sessions/communication",
+        dedupeKey: `decision:comm:${hashKey(d.question)}`,
+      });
     }
 
     return { ok: true, summaryId: summary.id, proposedActions: proposed };

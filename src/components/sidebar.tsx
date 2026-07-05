@@ -9,7 +9,6 @@ import {
   ScrollText,
   Plug,
   Search,
-  SquarePen,
   ChevronDown,
   Sparkles,
   Network,
@@ -19,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/notification-bell";
 
 type NavItem = {
   href: string;
@@ -81,7 +81,7 @@ export function Sidebar({ pendingApprovals }: { pendingApprovals?: number }) {
   ];
 
   return (
-    <aside className="flex w-[220px] shrink-0 flex-col border-r border-border bg-surface px-2 py-2.5">
+    <aside className="relative flex w-[220px] shrink-0 flex-col border-r border-border bg-surface px-2 py-2.5">
       {/* Workspace switcher */}
       <div className="mb-3 flex items-center gap-1 px-1">
         <button className="flex flex-1 items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-surface-2">
@@ -91,19 +91,13 @@ export function Sidebar({ pendingApprovals }: { pendingApprovals?: number }) {
           <span className="text-[13px] font-medium">Zoro</span>
           <ChevronDown className="h-3.5 w-3.5 text-faint" />
         </button>
+        <NotificationBell />
         <button
           onClick={openCommandBar}
           aria-label="Search / commands"
           className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-surface-2 hover:text-muted"
         >
           <Search className="h-4 w-4" />
-        </button>
-        <button
-          onClick={openCommandBar}
-          aria-label="Commands"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-surface-2 hover:text-muted"
-        >
-          <SquarePen className="h-4 w-4" />
         </button>
       </div>
 

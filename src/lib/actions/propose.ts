@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
+import { notify } from "@/lib/notifications";
 
 function canonicalJson(obj: Record<string, unknown>): string {
   return JSON.stringify(obj, Object.keys(obj).sort());
@@ -47,6 +48,13 @@ export async function proposeAction(input: {
         targetId: action.id,
         metadata: { actionType: input.actionType, risk: input.riskLevel },
       },
+    });
+    await notify(input.workspaceId, {
+      type: "approval",
+      title: "Action needs your approval",
+      body: input.title,
+      href: "/approvals",
+      dedupeKey: `approval:${idempotencyKey}`,
     });
     return true;
   } catch {

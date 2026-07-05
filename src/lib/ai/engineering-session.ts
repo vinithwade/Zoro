@@ -9,6 +9,7 @@ import {
 } from "./schemas";
 import { detectBlockerCandidates, type EventLite } from "./blocker-rules";
 import { groundOutput } from "./grounding";
+import { notify, hashKey } from "@/lib/notifications";
 import {
   ACTION_REGISTRY,
   buildActionPayload,
@@ -196,6 +197,16 @@ export async function runEngineeringSession(
       grounded.suggestedActions,
     );
 
+    for (const d of grounded.decisionsNeeded) {
+      await notify(workspaceId, {
+        type: "decision",
+        title: "Decision needed (Engineering)",
+        body: d.question,
+        href: "/sessions/engineering",
+        dedupeKey: `decision:eng:${hashKey(d.question)}`,
+      });
+    }
+
     return { ok: true, summaryId: summary.id, proposedActions: proposed };
   } catch (err) {
     await db.agentRun.update({
@@ -253,6 +264,13 @@ async function createProposedActions(
           targetId: action.id,
           metadata: { actionType: a.actionType, risk: action.riskLevel },
         },
+      });
+      await notify(workspaceId, {
+        type: "approval",
+        title: "Action needs your approval",
+        body: a.title,
+        href: "/approvals",
+        dedupeKey: `approval:${idempotencyKey}`,
       });
       created++;
     } catch {

@@ -8,6 +8,7 @@ import { maybeRefreshCommunicationSession } from "@/lib/ai/communication-session
 import { sendDigest, type DigestKind } from "@/lib/ai/digest";
 import { getTodaySpendUsd } from "@/lib/ai/cost";
 import { getSlackClient, postSlackMessage } from "@/lib/slack/client";
+import { notify } from "@/lib/notifications";
 
 // In-process background poller. No Redis/BullMQ — for one local user a guarded
 // setInterval is the simplest thing that works. Sync/AI are plain async fns, so
@@ -116,6 +117,13 @@ async function maybeAlertBudget(workspaceId: string) {
     },
   });
   console.log(`[scheduler] AI spend $${spend.toFixed(4)} exceeded budget $${budget.dailyUsd}`);
+  await notify(workspaceId, {
+    type: "budget",
+    title: "AI spend over budget",
+    body: `Today's AI spend is $${spend.toFixed(2)}, over your $${budget.dailyUsd.toFixed(2)} daily budget.`,
+    href: "/agents",
+    dedupeKey: `budget:${today}`,
+  });
 
   if (budget.alertSlack && budget.channel) {
     const slack = await getSlackClient(workspaceId).catch(() => null);

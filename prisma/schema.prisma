@@ -27,6 +27,7 @@ model Workspace {
   conversations Conversation[]
   digests       ScheduledDigest[]
   budget        SpendBudget?
+  notifications Notification[]
 }
 
 // A connected external tool. Slice 1: provider = "github".
@@ -194,6 +195,24 @@ model SpendBudget {
   updatedAt     DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Founder-facing notifications for things that need attention.
+model Notification {
+  id          String   @id @default(cuid())
+  workspaceId String
+  type        String // "approval" | "decision" | "blocker" | "budget"
+  title       String
+  body        String?
+  href        String?
+  dedupeKey   String // so the same alert isn't created twice
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, dedupeKey])
+  @@index([workspaceId, read, createdAt(sort: Desc)])
 }
 
 // Append-only trail of everything that happened (AI, human, system).
