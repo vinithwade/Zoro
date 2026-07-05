@@ -20,6 +20,7 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/stat-tile";
+import { BudgetBar } from "@/components/budget-bar";
 import { cn, timeAgo } from "@/lib/utils";
 
 type Run = {
@@ -92,6 +93,7 @@ export default function AgentsPage() {
         subtitle="Every AI run — what it read, what it produced, and what it cost."
       />
       <div className="space-y-6 px-8 py-6">
+        <BudgetBar />
         {stats ? (
           <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface md:grid-cols-3 md:divide-y-0 lg:grid-cols-5">
             <StatTile label="Total runs" value={stats.total} icon={Activity} />

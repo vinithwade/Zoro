@@ -1,19 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, getDefaultWorkspace } from "@/lib/db";
-
-// Rough OpenAI pricing (USD per 1M tokens). Fallback = gpt-4o-mini rates.
-const PRICING: Record<string, { in: number; out: number }> = {
-  "gpt-4o-mini": { in: 0.15, out: 0.6 },
-  "gpt-4o": { in: 2.5, out: 10 },
-  "gpt-4.1-mini": { in: 0.4, out: 1.6 },
-  "gpt-4.1": { in: 2, out: 8 },
-  "gpt-4.1-nano": { in: 0.1, out: 0.4 },
-};
-
-function costOf(model: string, inTok: number, outTok: number): number {
-  const p = PRICING[model] ?? PRICING["gpt-4o-mini"];
-  return (inTok / 1e6) * p.in + (outTok / 1e6) * p.out;
-}
+import { costOf } from "@/lib/ai/cost";
 
 type Json = Record<string, unknown>;
 

@@ -6,6 +6,8 @@ import { syncStripe } from "@/lib/stripe/sync";
 import { maybeRefreshEngineeringSession } from "@/lib/ai/engineering-session";
 import { maybeRefreshCommunicationSession } from "@/lib/ai/communication-session";
 import { sendDigest, type DigestKind } from "@/lib/ai/digest";
+import { getTodaySpendUsd } from "@/lib/ai/cost";
+import { getSlackClient, postSlackMessage } from "@/lib/slack/client";
 
 // In-process background poller. No Redis/BullMQ — for one local user a guarded
 // setInterval is the simplest thing that works. Sync/AI are plain async fns, so
@@ -41,6 +43,7 @@ export function startScheduler() {
         }
       }
       await maybeSendDigests(ws.id);
+      await maybeAlertBudget(ws.id);
       if (ticks % EXPIRY_SWEEP_EVERY_TICKS === 0) {
         await expireStaleActions(ws.id);
       }
@@ -86,6 +89,43 @@ async function maybeSendDigests(workspaceId: string) {
       console.log(`[scheduler] posted ${d.kind} digest to #${d.channel}`);
     } else {
       console.log(`[scheduler] ${d.kind} digest skipped: ${(result as { error?: string }).error}`);
+    }
+  }
+}
+
+// Alert (once per day) when today's AI spend crosses the configured budget.
+async function maybeAlertBudget(workspaceId: string) {
+  const budget = await db.spendBudget.findUnique({ where: { workspaceId } });
+  if (!budget || budget.dailyUsd <= 0) return;
+
+  const today = ymd(new Date());
+  if (budget.lastAlertedOn === today) return;
+
+  const spend = await getTodaySpendUsd(workspaceId);
+  if (spend < budget.dailyUsd) return;
+
+  // Claim the day's alert slot first so we notify at most once.
+  await db.spendBudget.update({ where: { workspaceId }, data: { lastAlertedOn: today } });
+  await db.auditLog.create({
+    data: {
+      workspaceId,
+      actorType: "system",
+      actor: "budget-monitor",
+      action: "budget.exceeded",
+      metadata: { spend: Number(spend.toFixed(4)), budget: budget.dailyUsd },
+    },
+  });
+  console.log(`[scheduler] AI spend $${spend.toFixed(4)} exceeded budget $${budget.dailyUsd}`);
+
+  if (budget.alertSlack && budget.channel) {
+    const slack = await getSlackClient(workspaceId).catch(() => null);
+    const ch = slack?.config.channels.find((c) => c.name === budget.channel || c.id === budget.channel);
+    if (slack && ch) {
+      await postSlackMessage(
+        slack.token,
+        ch.id,
+        `⚠️ *Zoro budget alert* — today's AI spend is *$${spend.toFixed(2)}*, over your $${budget.dailyUsd.toFixed(2)} daily budget.`,
+      ).catch(() => {});
     }
   }
 }

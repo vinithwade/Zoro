@@ -26,6 +26,7 @@ model Workspace {
   auditLogs     AuditLog[]
   conversations Conversation[]
   digests       ScheduledDigest[]
+  budget        SpendBudget?
 }
 
 // A connected external tool. Slice 1: provider = "github".
@@ -179,6 +180,20 @@ model ScheduledDigest {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, kind])
+}
+
+// Daily AI-spend budget + alert configuration.
+model SpendBudget {
+  id            String   @id @default(cuid())
+  workspaceId   String   @unique
+  dailyUsd      Float    @default(1.0) // threshold in USD
+  alertSlack    Boolean  @default(false)
+  channel       String   @default("") // Slack channel for the alert
+  lastAlertedOn String? // "YYYY-MM-DD" so we alert at most once per day
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 // Append-only trail of everything that happened (AI, human, system).
