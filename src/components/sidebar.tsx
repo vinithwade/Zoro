@@ -14,6 +14,7 @@ import {
   Sparkles,
   Network,
   MessagesSquare,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,12 @@ export function Sidebar({ pendingApprovals }: { pendingApprovals?: number }) {
       icon: Inbox,
       match: (p) => p.startsWith("/approvals"),
       badge: pendingApprovals,
+    },
+    {
+      href: "/agents",
+      label: "Agent Runs",
+      icon: Bot,
+      match: (p) => p.startsWith("/agents"),
     },
     {
       href: "/audit",

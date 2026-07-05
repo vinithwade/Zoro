@@ -116,14 +116,43 @@ export async function generateDigest(
     blockerOwners.length ? `\nBLOCKERS WITH OWNERS (use these mention tokens verbatim):\n${blockerOwners.map((b) => `• ${b}`).join("\n")}` : "",
   ].join("\n");
 
-  const completion = await client.chat.completions.create({
-    model: env.OPENAI_MODEL,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
+  // Track the digest as an agent run (shows in the Agent Control Room).
+  const run = await db.agentRun.create({
+    data: {
+      workspaceId,
+      kind: `digest_${kind}`,
+      model: env.OPENAI_MODEL,
+      status: "running",
+      inputSummary: { eventCount: events.length, kind },
+    },
   });
-  return completion.choices[0]?.message?.content?.trim() || null;
+  try {
+    const completion = await client.chat.completions.create({
+      model: env.OPENAI_MODEL,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    });
+    const text = completion.choices[0]?.message?.content?.trim() || null;
+    await db.agentRun.update({
+      where: { id: run.id },
+      data: {
+        status: "succeeded",
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+        rawOutput: { chars: text?.length ?? 0 },
+        finishedAt: new Date(),
+      },
+    });
+    return text;
+  } catch (err) {
+    await db.agentRun.update({
+      where: { id: run.id },
+      data: { status: "failed", error: err instanceof Error ? err.message : String(err), finishedAt: new Date() },
+    });
+    throw err;
+  }
 }
 
 export async function sendDigest(

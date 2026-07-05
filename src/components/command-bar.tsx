@@ -13,6 +13,7 @@ import {
   Sparkles,
   MessageCircleQuestion,
   Network,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -67,6 +68,7 @@ export function CommandBar() {
       { id: "nav-dashboard", label: "Go to CEO Dashboard", icon: LayoutDashboard, run: go("/") },
       { id: "nav-eng", label: "Go to Engineering", icon: Boxes, run: go("/sessions/engineering") },
       { id: "nav-approvals", label: "Go to Approvals", icon: Inbox, run: go("/approvals") },
+      { id: "nav-agents", label: "Go to Agent Control Room", icon: Bot, run: go("/agents") },
       { id: "nav-audit", label: "Go to Audit Log", icon: ScrollText, run: go("/audit") },
       { id: "nav-connect", label: "Go to Connect Tools", icon: Plug, run: go("/connect") },
       {
