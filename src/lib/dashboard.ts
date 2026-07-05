@@ -1,7 +1,16 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { detectBlockerCandidates, type EventLite } from "@/lib/ai/blocker-rules";
-import { getStoredMetrics, formatMoney } from "@/lib/stripe/metrics";
+import { getStoredMetrics, formatMoney, type RevenueMetrics } from "@/lib/stripe/metrics";
+
+function revenueTrend(metrics: RevenueMetrics | null): DashboardData["revenue"] {
+  if (!metrics?.history?.length) return null;
+  const history = metrics.history.map((h) => h.mrr);
+  const last = history[history.length - 1];
+  const firstNonZero = history.find((v) => v > 0) ?? null;
+  const deltaPct = firstNonZero ? Math.round(((last - firstNonZero) / firstNonZero) * 100) : null;
+  return { history, deltaPct, up: deltaPct == null ? last > 0 : deltaPct >= 0 };
+}
 
 const WINDOW_DAYS = 30;
 
@@ -20,6 +29,7 @@ export type DashboardData = {
   slackConnected: boolean;
   stripeConnected: boolean;
   mrr: string | null;
+  revenue: { history: number[]; deltaPct: number | null; up: boolean } | null;
   stats: {
     openPRs: number;
     failingCI: number;
@@ -123,6 +133,7 @@ export async function getDashboardData(workspaceId: string): Promise<DashboardDa
     slackConnected: !!slack,
     stripeConnected: !!stripe,
     mrr: metrics ? formatMoney(metrics.mrr, metrics.currency) : null,
+    revenue: revenueTrend(metrics),
     stats: { openPRs, failingCI, blockers: blockerCount, messages, pendingApprovals },
     health: worseHealth(eng?.content.health ?? null, comm?.content.health ?? null),
     engineering: eng ? { text: eng.content.summary, createdAt: eng.createdAt } : null,

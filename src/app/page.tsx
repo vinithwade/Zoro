@@ -15,9 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/stat-tile";
+import { Sparkline } from "@/components/sparkline";
 import { getDashboardData } from "@/lib/dashboard";
 import { getDefaultWorkspace } from "@/lib/db";
-import { timeAgo } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 
 const HEALTH: Record<string, { label: string; variant: "green" | "yellow" | "red" }> = {
   green: { label: "Healthy", variant: "green" },
@@ -68,10 +69,30 @@ export default async function DashboardPage() {
         }
       />
       <div className="space-y-6 px-8 py-6">
-        <div className={`grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface md:grid-cols-3 md:divide-y-0 ${data.mrr ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
-          {data.mrr ? (
-            <StatTile label="MRR" value={data.mrr} icon={DollarSign} tone="accent" />
-          ) : null}
+        {data.mrr && data.revenue ? (
+          <Card>
+            <CardContent className="flex items-center justify-between gap-4 py-4">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-muted">
+                  <DollarSign className="h-3.5 w-3.5 text-faint" />
+                  Monthly recurring revenue
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-semibold tabular-nums">{data.mrr}</span>
+                  {data.revenue.deltaPct != null ? (
+                    <span className={cn("text-xs font-medium", data.revenue.up ? "text-green" : "text-red")}>
+                      {data.revenue.up ? "▲" : "▼"} {Math.abs(data.revenue.deltaPct)}%
+                      <span className="ml-1 text-faint">30d</span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <Sparkline values={data.revenue.history} up={data.revenue.up} width={200} height={48} />
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface md:grid-cols-3 md:divide-y-0 lg:grid-cols-5">
           <StatTile label="Open PRs" value={data.stats.openPRs} icon={GitPullRequest} />
           <StatTile label="Failing CI" value={data.stats.failingCI} icon={XCircle} tone="red" />
           <StatTile label="Blockers" value={data.stats.blockers} icon={AlertTriangle} tone="yellow" />

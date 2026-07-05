@@ -9,7 +9,15 @@ export type RevenueMetrics = {
   newCustomers7d: number;
   newMrr7d: number;
   failedPayments7d: number;
+  history: { date: string; mrr: number }[]; // ~30 daily points, oldest → newest
 };
+
+const HISTORY_DAYS = 30;
+const DAY = 24 * 60 * 60;
+
+function ymd(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toISOString().slice(0, 10);
+}
 
 // Multiplier to normalize a per-interval amount to a monthly figure.
 const TO_MONTHLY: Record<string, number> = {
@@ -36,19 +44,39 @@ export async function getRevenueMetrics(workspaceId: string): Promise<RevenueMet
   const since7 = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
 
   try {
+    // Pull ALL subscriptions (incl. canceled) so we can reconstruct history.
+    const subs: { created: number; canceledAt: number | null; status: string; monthlyCents: number }[] = [];
+    let scanned = 0;
+    for await (const sub of stripe.subscriptions.list({ status: "all", limit: 100 })) {
+      let m = 0;
+      for (const item of sub.items.data) m += monthlyCents(item.price, item.quantity);
+      subs.push({ created: sub.created, canceledAt: sub.canceled_at ?? null, status: sub.status, monthlyCents: m });
+      if (++scanned >= 1000) break;
+    }
+
+    // Current MRR = live subscriptions only.
+    const isLive = (s: string) => s === "active" || s === "trialing";
     let mrrCents = 0;
     let newMrrCents = 0;
     let active = 0;
-    let scanned = 0;
-    for await (const sub of stripe.subscriptions.list({ status: "active", limit: 100 })) {
+    for (const s of subs) {
+      if (!isLive(s.status)) continue;
       active++;
-      let subMonthly = 0;
-      for (const item of sub.items.data) {
-        subMonthly += monthlyCents(item.price, item.quantity);
+      mrrCents += s.monthlyCents;
+      if (s.created >= since7) newMrrCents += s.monthlyCents;
+    }
+
+    // Daily MRR series: a subscription counts on day t if it existed and wasn't
+    // yet canceled at t (approximates historical MRR from created/canceled_at).
+    const nowSec = Math.floor(Date.now() / 1000);
+    const history: { date: string; mrr: number }[] = [];
+    for (let i = HISTORY_DAYS - 1; i >= 0; i--) {
+      const t = nowSec - i * DAY;
+      let cents = 0;
+      for (const s of subs) {
+        if (s.created <= t && (s.canceledAt == null || s.canceledAt > t)) cents += s.monthlyCents;
       }
-      mrrCents += subMonthly;
-      if (sub.created >= since7) newMrrCents += subMonthly;
-      if (++scanned >= 1000) break;
+      history.push({ date: ymd(t), mrr: Math.round(cents) / 100 });
     }
 
     let newCustomers = 0;
@@ -73,6 +101,7 @@ export async function getRevenueMetrics(workspaceId: string): Promise<RevenueMet
       newCustomers7d: newCustomers,
       newMrr7d: Math.round(newMrrCents) / 100,
       failedPayments7d: failed,
+      history,
     };
   } catch {
     return null;

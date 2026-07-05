@@ -77,14 +77,19 @@ export async function generateDigest(
     // Pull real revenue from Stripe if connected.
     const rev = await getRevenueMetrics(workspaceId).catch(() => null);
     if (rev) {
+      // 30-day MRR growth from the reconstructed history.
+      const h = rev.history.map((p) => p.mrr);
+      const firstNz = h.find((v) => v > 0);
+      const growth = firstNz ? Math.round(((h[h.length - 1] - firstNz) / firstNz) * 100) : null;
       revenueBlock = [
         "\nREVENUE (from Stripe — use exact figures, do not invent):",
         `• MRR: ${formatMoney(rev.mrr, rev.currency)}`,
+        growth != null ? `• MRR growth (30d): ${growth >= 0 ? "+" : ""}${growth}%` : "",
         `• Active subscriptions: ${rev.activeSubscriptions}`,
         `• New MRR this week: ${formatMoney(rev.newMrr7d, rev.currency)}`,
         `• New customers (7d): ${rev.newCustomers7d}`,
         `• Failed payments (7d): ${rev.failedPayments7d}`,
-      ].join("\n");
+      ].filter(Boolean).join("\n");
     }
 
     system = [
