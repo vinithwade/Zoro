@@ -4,6 +4,51 @@ import { db } from "@/lib/db";
 import { getOpenAIClient, generateStructured } from "./openai";
 import { detectBlockerCandidates, type EventLite } from "./blocker-rules";
 import { rankEvents } from "./ask-retrieval";
+import { formatMoney, type RevenueMetrics } from "@/lib/stripe/metrics";
+
+const SUPPORTED_TOOLS = [
+  { provider: "github", name: "GitHub" },
+  { provider: "slack", name: "Slack" },
+  { provider: "stripe", name: "Stripe" },
+  { provider: "openai", name: "OpenAI" },
+] as const;
+
+// Summarize which tools are connected (so Zoro can answer setup/status questions).
+async function buildToolStatus(
+  workspaceId: string,
+): Promise<{ text: string; anyConnected: boolean }> {
+  const rows = await db.integration.findMany({ where: { workspaceId } });
+  const byProvider = new Map(rows.map((r) => [r.provider, r]));
+  const lines: string[] = [];
+
+  for (const { provider, name } of SUPPORTED_TOOLS) {
+    const r = byProvider.get(provider);
+    if (!r) {
+      lines.push(`- ${name}: NOT connected.`);
+      continue;
+    }
+    const cfg = (r.config ?? {}) as {
+      login?: string; repos?: string[]; teamName?: string;
+      channels?: { name: string }[]; accountName?: string; livemode?: boolean;
+    };
+    let detail = "";
+    if (provider === "github") {
+      detail = `as @${cfg.login ?? "?"}, watching ${cfg.repos?.length ?? 0} repo(s)${cfg.repos?.length ? ` (${cfg.repos.join(", ")})` : ""}`;
+    } else if (provider === "slack") {
+      detail = `workspace "${cfg.teamName ?? "?"}", watching ${cfg.channels?.length ?? 0} channel(s)`;
+    } else if (provider === "stripe") {
+      const m = (r.syncCursor as { metrics?: RevenueMetrics } | null)?.metrics;
+      detail = `account "${cfg.accountName ?? "unknown"}" (${cfg.livemode ? "live" : "test"} mode)${m ? `, MRR ${formatMoney(m.mrr, m.currency)}` : ""}`;
+    } else {
+      detail = "AI features enabled";
+    }
+    const synced = r.lastSyncedAt ? `, last synced ${r.lastSyncedAt.toISOString().slice(0, 16)}` : "";
+    const status = r.status && r.status !== "connected" ? ` [status: ${r.status}]` : "";
+    lines.push(`- ${name}: CONNECTED — ${detail}${synced}${status}.`);
+  }
+
+  return { text: "CONNECTED TOOLS & SETUP:\n" + lines.join("\n"), anyConnected: rows.length > 0 };
+}
 
 const CONTEXT_WINDOW_DAYS = 45;
 const CANDIDATE_POOL = 250; // events pulled before ranking
@@ -47,6 +92,8 @@ export async function askZoro(
   const client = await getOpenAIClient(workspaceId);
   if (!client) return { ok: false, reason: "OpenAI is not connected. Add your key in Connect Tools." };
 
+  const toolStatus = await buildToolStatus(workspaceId);
+
   const since = new Date(Date.now() - CONTEXT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const pool = await db.event.findMany({
     where: { workspaceId, occurredAt: { gte: since } },
@@ -58,8 +105,9 @@ export async function askZoro(
     },
   });
 
-  if (pool.length === 0) {
-    return { ok: false, reason: "No activity yet. Connect GitHub and run a sync first." };
+  // Only bail if there's genuinely nothing to talk about (no events AND no tools).
+  if (pool.length === 0 && !toolStatus.anyConnected) {
+    return { ok: false, reason: "No tools are connected yet. Connect one in Connect Tools." };
   }
 
   // Rank: question relevance first, then importance, then recency.
@@ -88,7 +136,7 @@ export async function askZoro(
     take: 20,
   });
 
-  const contextParts: string[] = [];
+  const contextParts: string[] = [toolStatus.text];
 
   if (summary) {
     const c = summary.content as { summary?: string; health?: string };
@@ -129,10 +177,11 @@ export async function askZoro(
   );
 
   const system = [
-    "You are Zoro, an assistant for a startup founder. Answer the founder's question using ONLY the company context provided below (events, summaries, blockers, pending approvals).",
+    "You are Zoro, an assistant for a startup founder. Answer the founder's question using ONLY the company context provided below (connected tools, events, summaries, blockers, pending approvals).",
+    "For setup/status questions (e.g. 'is Stripe connected?', 'which repos are we watching?', 'what's our MRR?'), answer directly from the CONNECTED TOOLS & SETUP section — no event citations are needed for those.",
     "Be concise, specific, and direct — a few sentences, and bullet points when listing. Refer to real PRs/issues/people by name when relevant.",
-    "Cite the event ids you relied on in citedEventIds (the bracketed [id] values). Do NOT put the raw ids in the answer text.",
-    "If the context does not contain enough information to answer, say so plainly and set citedEventIds to []. Never invent PRs, issues, people, dates, or facts that are not in the context.",
+    "When you rely on activity events, cite the event ids in citedEventIds (the bracketed [id] values). Do NOT put the raw ids in the answer text.",
+    "If the context does not contain enough information to answer, say so plainly. Never invent tools, PRs, issues, people, dates, numbers, or facts that are not in the context.",
   ].join("\n");
 
   const run = await db.agentRun.create({
