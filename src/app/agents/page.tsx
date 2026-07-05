@@ -50,6 +50,7 @@ const KIND: Record<string, { label: string; icon: LucideIcon }> = {
   ask_zoro: { label: "Ask Zoro", icon: Sparkles },
   digest_standup: { label: "Daily standup digest", icon: CalendarClock },
   digest_investor: { label: "Investor update", icon: TrendingUp },
+  ship_check: { label: "Ship readiness check", icon: Sparkles },
 };
 
 function kindMeta(kind: string) {

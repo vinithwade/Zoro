@@ -14,6 +14,7 @@ import {
   MessageCircleQuestion,
   Network,
   Bot,
+  Rocket,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ export function CommandBar() {
     };
     return [
       { id: "ask", label: "Ask Zoro a question", icon: MessageCircleQuestion, run: go("/ask") },
+      { id: "nav-ship", label: "Go to Ship Check", icon: Rocket, run: go("/ship-check") },
       { id: "nav-memory", label: "Go to Memory graph", icon: Network, run: go("/memory") },
       { id: "nav-dashboard", label: "Go to CEO Dashboard", icon: LayoutDashboard, run: go("/") },
       { id: "nav-eng", label: "Go to Engineering", icon: Boxes, run: go("/sessions/engineering") },

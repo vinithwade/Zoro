@@ -15,6 +15,7 @@ import {
   Network,
   MessagesSquare,
   Bot,
+  Rocket,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function Sidebar({ pendingApprovals }: { pendingApprovals?: number }) {
   const pinned: NavItem[] = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, match: (p) => p === "/" },
     { href: "/ask", label: "Ask Zoro", icon: Sparkles, match: (p) => p.startsWith("/ask") },
+    { href: "/ship-check", label: "Ship Check", icon: Rocket, match: (p) => p.startsWith("/ship-check") },
     { href: "/memory", label: "Memory", icon: Network, match: (p) => p.startsWith("/memory") },
   ];
   const sessions: NavItem[] = [
