@@ -14,7 +14,8 @@ import {
 
 const bodySchema = z.object({
   question: z.string().min(1).max(2000),
-  conversationId: z.string().optional(),
+  // Accept null (new chat sends conversationId: null) as well as undefined.
+  conversationId: z.string().nullish(),
 });
 
 function titleFrom(question: string): string {
@@ -25,7 +26,8 @@ function titleFrom(question: string): string {
 export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, reason: "A question is required." }, { status: 400 });
+    const reason = parsed.error.issues[0]?.message ?? "Invalid request.";
+    return NextResponse.json({ ok: false, reason }, { status: 400 });
   }
   const ws = await getDefaultWorkspace();
   const { question } = parsed.data;
